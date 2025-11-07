@@ -4,6 +4,7 @@
     let projectFiles = {}; 
     let lastCompiledCode = '';
     
+    
     function bundleProject(fileName, visited = new Set()) {
         if (visited.has(fileName)) {
             throw new Error(`IMPORT LOOP: '${fileName}' has already been imported.`);
@@ -21,16 +22,21 @@
         for (const line of lines) {
             const trimmedLine = line.trim();
             
-            const importMatch = trimmedLine.match(/^(?:from\s+)?(\w+)\s+(?:import\s+.*|\*)$/);
+            // YENİ KOMUT: 'import dosya_adı'
+            // Bu regex, 'import dosya_adı' veya 'from dosya_adı import *' gibi daha karmaşık bir yapıyı da yakalar, 
+            // ancak sadece temel 'import dosya_adı' kısmını kullanacağız.
+            const importMatch = trimmedLine.match(/^import\s+(\w+)$/);
 
             if (importMatch) {
                 const libName = importMatch[1];
-                const libFileName = libName + '.py';
+                const libFileName = libName + '.py'; // .py uzantısını ekle
                 
                 if (libFileName === fileName) continue; 
 
                 try {
+                    // Özyinelemeli olarak içe aktarılan dosyanın içeriğini al
                     const importedCode = bundleProject(libFileName, visited);
+                    // İçeriği doğrudan birleştir (concatenation)
                     bundledCode.push(`\n` + importedCode + `\n`);
                 } catch (e) {
                     if (e.message.includes('not found')) {
@@ -145,6 +151,11 @@
             }
             else if (trimmedLine.match(/^(\w+)\s*=\s*(.*)$/)) {
                 jsLine = `let ${RegExp.$1} = ${RegExp.$2.trim()};`;
+            }
+            // Ayrıca, bu 'import dosya_adı' satırını compilePythonToJS'te atlamalıyız, 
+            // çünkü birleştirme aşamasında içeriği zaten eklenmiştir.
+            else if (trimmedLine.match(/^import\s+(\w+)$/)) {
+                 continue; // Birleştirme aşamasında ele alındı.
             }
             else {
                 jsLine = `${trimmedLine.replace(/:$/, '')};`; 
